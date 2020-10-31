@@ -94,7 +94,26 @@ func (s *pullService) UnassignIssue(ctx context.Context, repo string, number int
 }
 
 func (s *pullService) Create(ctx context.Context, repo string, input *scm.PullRequestInput) (*scm.PullRequest, *scm.Response, error) {
-	return nil, nil, scm.ErrNotSupported
+	path := fmt.Sprintf("2.0/repositories/%s/pullrequests", repo)
+
+	in := &createPRInput{
+		Title:       input.Title,
+		Description: input.Body,
+		Source: createPRInputSource{
+			Branch: createPRInputBranch{
+				Name: input.Head,
+			},
+		},
+		Destination: createPRInputDestination{
+			Branch: createPRInputBranch{
+				Name: input.Base,
+			},
+		},
+	}
+
+	out := new(pullRequest)
+	res, err := s.client.do(ctx, "POST", path, in, out)
+	return convertPullRequest(out), res, err
 }
 
 func (s *pullService) RequestReview(ctx context.Context, repo string, number int, logins []string) (*scm.Response, error) {
@@ -103,6 +122,22 @@ func (s *pullService) RequestReview(ctx context.Context, repo string, number int
 
 func (s *pullService) UnrequestReview(ctx context.Context, repo string, number int, logins []string) (*scm.Response, error) {
 	return nil, scm.ErrNotSupported
+}
+
+type createPRInput struct {
+	Title       string                   `json:"title"`
+	Description string                   `json:"description"`
+	Source      createPRInputSource      `json:"source"`
+	Destination createPRInputDestination `json:"destination"`
+}
+type createPRInputBranch struct {
+	Name string `json:"name"`
+}
+type createPRInputSource struct {
+	Branch createPRInputBranch `json:"branch"`
+}
+type createPRInputDestination struct {
+	Branch createPRInputBranch `json:"branch"`
 }
 
 type prCommit struct {
@@ -135,7 +170,7 @@ type prDestination struct {
 
 type pullRequest struct {
 	ID int `json:"id"`
-	//Version     int    `json:"version"`
+	//Version         int           `json:"version"`
 	Title        string        `json:"title"`
 	Description  string        `json:"description"`
 	State        string        `json:"state"`
